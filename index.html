@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kavi Wheel of Fortune</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400;600;700&family=JetBrains+Mono:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --gold:#FFD700;--gold2:#C8A200;--gold3:#FFF0A0;
+  --bg:#05050D;--bg2:#0C0C1E;--bg3:#141428;
+  --surf:rgba(255,215,0,0.05);--border:rgba(255,215,0,0.18);
+  --text:#EEE4C8;--dim:#7A6A4A;
+  --red:#FF4455;--green:#00FF88;--blue:#60A5FA;--purple:#C084FC;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:'Cinzel',serif;min-height:100vh;
+  background-image:
+    radial-gradient(ellipse at 20% 0%,rgba(255,215,0,0.06) 0%,transparent 50%),
+    radial-gradient(ellipse at 80% 100%,rgba(80,20,160,0.08) 0%,transparent 50%);
+}
+
+/* ─── HEADER ─────────────────────────────────────── */
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 28px;
+  border-bottom:1px solid var(--border);
+  background:rgba(5,5,13,0.95);
+  backdrop-filter:blur(12px);
+  position:sticky;top:0;z-index:100;
+}
+.logo{
+  font-family:'Cinzel Decorative',serif;font-size:1.25rem;font-weight:900;
+  color:var(--gold);letter-spacing:.08em;
+  text-shadow:0 0 20px rgba(255,215,0,0.5);
+}
+.header-mid{display:flex;gap:16px;align-items:center;flex-wrap:wrap;}
+.hbadge{
+  font-family:'JetBrains Mono',monospace;font-size:.72rem;
+  padding:4px 10px;border-radius:4px;
+  border:1px solid var(--border);color:var(--dim);
+}
+.hbadge span{color:var(--gold);}
+#connect-btn{
+  font-family:'Cinzel',serif;font-size:.78rem;font-weight:700;letter-spacing:.06em;
+  padding:9px 22px;border-radius:6px;cursor:pointer;
+  background:linear-gradient(135deg,#C8A200,#FFD700,#C8A200);
+  color:#050510;border:none;
+  box-shadow:0 0 16px rgba(255,215,0,0.3);
+  transition:all .2s;
+}
+#connect-btn:hover{box-shadow:0 0 28px rgba(255,215,0,0.6);transform:translateY(-1px);}
+
+/* ─── TABS ───────────────────────────────────────── */
+.tab-bar{
+  display:flex;gap:4px;padding:12px 28px 0;
+  border-bottom:1px solid var(--border);
+  background:var(--bg);
+}
+.tab{
+  font-family:'Cinzel',serif;font-size:.78rem;font-weight:700;letter-spacing:.06em;
+  padding:10px 20px;border-radius:6px 6px 0 0;
+  background:transparent;border:1px solid transparent;
+  border-bottom:none;color:var(--dim);cursor:pointer;
+  transition:all .2s;
+}
+.tab:hover{color:var(--gold);border-color:var(--border);}
+.tab.active{
+  color:var(--gold);border-color:var(--border);
+  background:var(--bg2);
+  text-shadow:0 0 10px rgba(255,215,0,0.4);
+}
+.panel{display:none;padding:28px;}
+.panel.active{display:block;}
+
+/* ─── SPIN TAB ───────────────────────────────────── */
+.spin-layout{
+  display:grid;grid-template-columns:auto 1fr;gap:40px;
+  max-width:960px;margin:0 auto;align-items:start;
+}
+@media(max-width:700px){.spin-layout{grid-template-columns:1fr;}}
+
+/* Wheel */
+.wheel-section{position:relative;display:flex;flex-direction:column;align-items:center;gap:0;}
+.pointer{
+  font-size:28px;color:var(--gold);
+  text-shadow:0 0 16px rgba(255,215,0,0.9);
+  line-height:1;margin-bottom:-4px;z-index:5;
+  animation:pointerbob .8s ease-in-out infinite alternate;
+}
+@keyframes pointerbob{from{transform:translateY(0)}to{transform:translateY(5px)}}
+.wheel-outer{
+  width:400px;height:400px;position:relative;
+  border-radius:50%;
+  border:4px solid var(--gold);
+  box-shadow:
+    0 0 40px rgba(255,215,0,0.35),
+    inset 0 0 40px rgba(0,0,0,0.5),
+    0 0 80px rgba(255,215,0,0.12);
+  overflow:hidden;
+}
+#wheel-wrapper{
+  width:100%;height:100%;
+  transform-origin:center center;
+  will-change:transform;
+}
+#wheel-canvas{display:block;width:100%;height:100%;}
+.wheel-hub{
+  position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:54px;height:54px;border-radius:50%;
+  background:radial-gradient(circle,#1A0A00,#0A0500);
+  border:3px solid var(--gold);
+  box-shadow:0 0 20px rgba(255,215,0,0.6);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Cinzel Decorative',serif;font-size:.55rem;font-weight:700;
+  color:var(--gold);letter-spacing:.04em;
+  pointer-events:none;z-index:10;
+}
+
+/* Controls */
+.controls-section{display:flex;flex-direction:column;gap:18px;padding-top:12px;}
+.info-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:10px;
+}
+.info-card{
+  background:var(--surf);border:1px solid var(--border);border-radius:8px;
+  padding:12px 14px;display:flex;flex-direction:column;gap:3px;
+}
+.info-card .lbl{font-size:.65rem;color:var(--dim);letter-spacing:.08em;text-transform:uppercase;}
+.info-card .val{font-family:'JetBrains Mono',monospace;font-size:.95rem;color:var(--gold);font-weight:700;}
+
+/* Bet input */
+.bet-section{
+  background:var(--surf);border:1px solid var(--border);border-radius:10px;padding:16px;
+}
+.bet-label{font-size:.72rem;letter-spacing:.1em;color:var(--dim);margin-bottom:8px;display:block;text-transform:uppercase;}
+.bet-row{display:flex;gap:8px;align-items:center;}
+#bet-amount{
+  flex:1;background:rgba(0,0,0,0.5);border:1px solid var(--border);
+  border-radius:6px;padding:10px 14px;
+  font-family:'JetBrains Mono',monospace;font-size:1rem;
+  color:var(--text);outline:none;
+  transition:border-color .2s;
+}
+#bet-amount:focus{border-color:var(--gold);box-shadow:0 0 8px rgba(255,215,0,0.2);}
+#bet-amount::placeholder{color:var(--dim);}
+.quick-bets{display:flex;gap:6px;margin-top:8px;}
+.qb{
+  flex:1;padding:6px;border-radius:5px;
+  background:rgba(255,215,0,0.08);border:1px solid var(--border);
+  font-family:'Cinzel',serif;font-size:.65rem;font-weight:700;
+  color:var(--dim);cursor:pointer;transition:all .15s;
+  letter-spacing:.04em;
+}
+.qb:hover{background:rgba(255,215,0,0.18);color:var(--gold);}
+
+/* SPIN BUTTON */
+#spin-btn{
+  padding:18px;border-radius:10px;
+  background:linear-gradient(135deg,#8A6800,#FFD700 50%,#8A6800);
+  border:none;cursor:pointer;
+  font-family:'Cinzel Decorative',serif;font-size:1.1rem;font-weight:700;
+  color:#050510;letter-spacing:.1em;
+  box-shadow:0 0 30px rgba(255,215,0,0.3),0 4px 15px rgba(0,0,0,0.5);
+  transition:all .2s;position:relative;overflow:hidden;
+}
+#spin-btn::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,0.25),transparent);
+  transform:translateX(-100%);transition:transform .5s;
+}
+#spin-btn:hover::before{transform:translateX(100%);}
+#spin-btn:hover:not(:disabled){box-shadow:0 0 50px rgba(255,215,0,0.6),0 4px 20px rgba(0,0,0,0.5);transform:translateY(-2px);}
+#spin-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+#spin-btn.spinning{
+  animation:spinbtnpulse 1s ease-in-out infinite;
+  background:linear-gradient(135deg,#3A2800,#AA8800 50%,#3A2800);
+}
+@keyframes spinbtnpulse{0%,100%{box-shadow:0 0 20px rgba(255,215,0,0.3)}50%{box-shadow:0 0 50px rgba(255,215,0,0.7)}}
+
+/* Segment legend */
+.legend{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;}
+.leg-item{
+  display:flex;align-items:center;gap:5px;
+  padding:4px 8px;border-radius:4px;
+  font-size:.65rem;font-weight:700;letter-spacing:.04em;
+  border:1px solid rgba(255,255,255,0.1);
+}
+.leg-dot{width:8px;height:8px;border-radius:50%;}
+
+/* ─── STATS TAB ──────────────────────────────────── */
+.stats-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:14px;max-width:900px;margin:0 auto 28px;
+}
+.stat-card{
+  background:var(--surf);border:1px solid var(--border);border-radius:10px;
+  padding:18px;text-align:center;
+}
+.stat-card .sc-label{font-size:.65rem;letter-spacing:.1em;color:var(--dim);text-transform:uppercase;margin-bottom:6px;}
+.stat-card .sc-val{font-family:'JetBrains Mono',monospace;font-size:1.3rem;color:var(--gold);font-weight:700;}
+.stat-card .sc-sub{font-size:.7rem;color:var(--dim);margin-top:2px;}
+
+.seg-dist{max-width:900px;margin:0 auto;}
+.seg-dist h3{font-size:.85rem;letter-spacing:.12em;color:var(--dim);text-transform:uppercase;margin-bottom:16px;}
+.seg-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.seg-bar-label{font-size:.75rem;width:80px;text-align:right;color:var(--text);}
+.seg-bar-track{flex:1;background:rgba(255,255,255,0.06);border-radius:4px;height:18px;overflow:hidden;}
+.seg-bar-fill{height:100%;border-radius:4px;transition:width .8s ease;display:flex;align-items:center;padding-left:8px;min-width:2px;}
+.seg-bar-fill span{font-size:.62rem;font-family:'JetBrains Mono',monospace;color:rgba(255,255,255,0.8);}
+.seg-bar-count{font-family:'JetBrains Mono',monospace;font-size:.72rem;width:60px;color:var(--dim);}
+
+.player-stats-row{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:12px;max-width:900px;margin:24px auto 0;
+}
+.pstat{
+  background:var(--surf);border:1px solid var(--border);border-radius:8px;
+  padding:14px;text-align:center;
+}
+.pstat .pl{font-size:.65rem;letter-spacing:.1em;color:var(--dim);text-transform:uppercase;margin-bottom:4px;}
+.pstat .pv{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:700;color:var(--gold);}
+
+/* ─── HISTORY TAB ────────────────────────────────── */
+.history-wrap{max-width:900px;margin:0 auto;overflow-x:auto;}
+table{width:100%;border-collapse:collapse;}
+th{
+  font-size:.65rem;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--dim);padding:10px 12px;text-align:left;
+  border-bottom:1px solid var(--border);
+}
+td{
+  padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:.82rem;
+  border-bottom:1px solid rgba(255,215,0,0.06);
+  transition:background .15s;
+}
+tr:hover td{background:var(--surf);}
+.seg-badge{
+  display:inline-block;padding:2px 8px;border-radius:4px;
+  font-family:'Cinzel',serif;font-size:.68rem;font-weight:700;
+}
+.empty-msg{text-align:center;color:var(--dim);padding:40px;font-size:.85rem;letter-spacing:.06em;}
+
+/* ─── POOL / ADMIN TABS ──────────────────────────── */
+.form-box{
+  max-width:500px;margin:0 auto;
+  background:var(--surf);border:1px solid var(--border);border-radius:12px;
+  padding:28px;
+}
+.form-box h2{font-size:1rem;letter-spacing:.1em;color:var(--gold);margin-bottom:6px;}
+.form-box p{font-size:.78rem;color:var(--dim);margin-bottom:20px;line-height:1.6;}
+.form-input{
+  width:100%;background:rgba(0,0,0,0.5);border:1px solid var(--border);
+  border-radius:6px;padding:12px 16px;
+  font-family:'JetBrains Mono',monospace;font-size:.95rem;
+  color:var(--text);outline:none;margin-bottom:14px;
+  transition:border-color .2s;
+}
+.form-input:focus{border-color:var(--gold);}
+.form-btn{
+  width:100%;padding:14px;border-radius:8px;
+  background:linear-gradient(135deg,#8A6800,#FFD700 50%,#8A6800);
+  border:none;cursor:pointer;
+  font-family:'Cinzel',serif;font-size:.85rem;font-weight:700;letter-spacing:.08em;
+  color:#050510;transition:all .2s;
+}
+.form-btn:hover{box-shadow:0 0 30px rgba(255,215,0,0.5);}
+.form-btn:disabled{opacity:.5;cursor:not-allowed;}
+.form-note{font-size:.7rem;color:var(--dim);margin-top:10px;line-height:1.5;}
+.info-line{
+  display:flex;justify-content:space-between;
+  padding:8px 0;border-bottom:1px solid var(--border);
+  font-size:.78rem;
+}
+.info-line .k{color:var(--dim);}
+.info-line .v{font-family:'JetBrains Mono',monospace;color:var(--gold);}
+
+/* ─── RESULT MODAL ───────────────────────────────── */
+#result-modal{
+  position:fixed;inset:0;z-index:1000;
+  display:none;align-items:center;justify-content:center;
+  background:rgba(5,5,13,0.88);backdrop-filter:blur(8px);
+}
+#result-modal.show{display:flex;}
+.result-box{
+  background:var(--bg2);border-radius:16px;
+  border:2px solid var(--border);
+  padding:40px 48px;text-align:center;
+  max-width:420px;width:90%;
+  box-shadow:0 0 60px rgba(255,215,0,0.2);
+  animation:popIn .35s cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes popIn{from{transform:scale(0.7);opacity:0}to{transform:scale(1);opacity:1}}
+.result-emoji{font-size:3.5rem;margin-bottom:10px;display:block;}
+.result-seg{
+  font-family:'Cinzel Decorative',serif;font-size:1.8rem;font-weight:900;
+  letter-spacing:.06em;margin-bottom:16px;
+}
+.result-rows{margin:16px 0;display:flex;flex-direction:column;gap:8px;}
+.result-row{display:flex;justify-content:space-between;font-size:.85rem;}
+.result-row .rk{color:var(--dim);}
+.result-row .rv{font-family:'JetBrains Mono',monospace;font-weight:700;}
+.result-pnl{
+  font-family:'JetBrains Mono',monospace;font-size:1.6rem;font-weight:700;
+  margin:16px 0;
+}
+#result-close{
+  margin-top:16px;padding:12px 32px;border-radius:8px;
+  background:var(--surf);border:1px solid var(--border);
+  font-family:'Cinzel',serif;font-size:.8rem;font-weight:700;letter-spacing:.06em;
+  color:var(--text);cursor:pointer;transition:all .15s;
+}
+#result-close:hover{border-color:var(--gold);color:var(--gold);}
+
+/* Jackpot sparkles */
+.sparkle{
+  position:fixed;pointer-events:none;z-index:999;
+  font-size:1.5rem;animation:sparklefall 2s ease-in forwards;
+}
+@keyframes sparklefall{
+  from{opacity:1;transform:translateY(0) rotate(0deg);}
+  to{opacity:0;transform:translateY(60vh) rotate(720deg);}
+}
+
+/* ─── NOTIFICATION ───────────────────────────────── */
+#notif{
+  position:fixed;bottom:24px;right:24px;z-index:2000;
+  max-width:360px;padding:14px 18px;border-radius:10px;
+  font-size:.82rem;letter-spacing:.04em;line-height:1.5;
+  transform:translateY(100px);opacity:0;transition:all .3s;
+  pointer-events:none;
+}
+#notif.show{transform:translateY(0);opacity:1;}
+#notif.info{background:#1E3A5F;border:1px solid #60A5FA;color:#BAD6FF;}
+#notif.success{background:#14532D;border:1px solid #22FF88;color:#A7F3C8;}
+#notif.error{background:#7F1D1D;border:1px solid #FF4455;color:#FFBBBB;}
+
+/* ─── MISC ────────────────────────────────────────── */
+.section-title{
+  font-size:.75rem;letter-spacing:.14em;color:var(--dim);
+  text-transform:uppercase;margin-bottom:16px;
+  display:flex;align-items:center;gap:10px;
+}
+.section-title::after{content:'';flex:1;height:1px;background:var(--border);}
+a.bscscan{
+  color:var(--dim);font-size:.7rem;font-family:'JetBrains Mono',monospace;
+  text-decoration:none;transition:color .15s;
+}
+a.bscscan:hover{color:var(--gold);}
+.loading{color:var(--dim);font-size:.8rem;letter-spacing:.06em;animation:blink 1.2s ease-in-out infinite;}
+@keyframes blink{0%,100%{opacity:.4}50%{opacity:1}}
+</style>
+</head>
+<body>
+
+<!-- ═══ HEADER ═══════════════════════════════════════════════ -->
+<header>
+  <div class="logo">🎡 KAVI WHEEL</div>
+  <div class="header-mid">
+    <div class="hbadge">Pool: <span id="hdr-pool">--</span></div>
+    <div class="hbadge">Network: <span id="hdr-net" style="color:var(--dim)">--</span></div>
+  </div>
+  <button id="connect-btn" onclick="connectWallet()">Connect Wallet</button>
+</header>
+
+<!-- ═══ TABS ══════════════════════════════════════════════════ -->
+<div class="tab-bar">
+  <button class="tab active" onclick="showTab('spin',this)">🎡 Spin</button>
+  <button class="tab" onclick="showTab('stats',this)">📊 Stats</button>
+  <button class="tab" onclick="showTab('history',this)">📜 History</button>
+  <button class="tab" onclick="showTab('pool',this)">💰 Fund Pool</button>
+  <button class="tab" id="admin-tab" style="display:none" onclick="showTab('admin',this)">⚙️ Admin</button>
+</div>
+
+<!-- ═══ SPIN PANEL ═══════════════════════════════════════════ -->
+<div id="tab-spin" class="panel active">
+  <div class="spin-layout">
+    <!-- Left: Wheel -->
+    <div class="wheel-section">
+      <div class="pointer">▼</div>
+      <div class="wheel-outer">
+        <div id="wheel-wrapper">
+          <canvas id="wheel-canvas" width="400" height="400"></canvas>
+        </div>
+        <div class="wheel-hub">KAVI</div>
+      </div>
+    </div>
+
+    <!-- Right: Controls -->
+    <div class="controls-section">
+      <div class="section-title">Pool Info</div>
+      <div class="info-grid">
+        <div class="info-card"><span class="lbl">Your Balance</span><span class="val" id="kavi-balance">--</span></div>
+        <div class="info-card"><span class="lbl">Prize Pool</span><span class="val" id="pool-bal">--</span></div>
+        <div class="info-card"><span class="lbl">Min Bet</span><span class="val" id="min-bet">--</span></div>
+        <div class="info-card"><span class="lbl">Max Bet</span><span class="val" id="max-bet">--</span></div>
+      </div>
+
+      <div class="section-title">Place Your Bet</div>
+      <div class="bet-section">
+        <span class="bet-label">Bet Amount (KAVI)</span>
+        <div class="bet-row">
+          <input type="number" id="bet-amount" placeholder="0.00" step="any" min="0"/>
+        </div>
+        <div class="quick-bets">
+          <button class="qb" onclick="setQuickBet('min')">MIN</button>
+          <button class="qb" onclick="setQuickBet(0.25)">25%</button>
+          <button class="qb" onclick="setQuickBet(0.5)">50%</button>
+          <button class="qb" onclick="setQuickBet('max')">MAX</button>
+        </div>
+      </div>
+
+      <button id="spin-btn" onclick="executeSpin()">🎡 SPIN NOW</button>
+
+      <div class="section-title">Wheel Segments</div>
+      <div class="legend" id="legend"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ STATS PANEL ══════════════════════════════════════════ -->
+<div id="tab-stats" class="panel">
+  <div class="section-title">Global Statistics</div>
+  <div class="stats-grid">
+    <div class="stat-card"><div class="sc-label">Total Spins</div><div class="sc-val" id="s-spins">--</div></div>
+    <div class="stat-card"><div class="sc-label">Volume</div><div class="sc-val" id="s-vol">--</div><div class="sc-sub">KAVI total bet</div></div>
+    <div class="stat-card"><div class="sc-label">Total Paid Out</div><div class="sc-val" id="s-paid">--</div></div>
+    <div class="stat-card"><div class="sc-label">Total Burned</div><div class="sc-val" id="s-burned">--</div><div class="sc-sub">🔥 out of supply</div></div>
+    <div class="stat-card"><div class="sc-label">Fees Collected</div><div class="sc-val" id="s-fees">--</div></div>
+    <div class="stat-card"><div class="sc-label">Prize Pool</div><div class="sc-val" id="s-pool">--</div></div>
+    <div class="stat-card"><div class="sc-label">🏆 Biggest Win</div><div class="sc-val" id="s-topwin">--</div><div class="sc-sub" id="s-topwinner" style="font-size:.65rem;color:var(--dim)"></div></div>
+    <div class="stat-card"><div class="sc-label">House Edge</div><div class="sc-val">~21%</div><div class="sc-sub">Player EV = 79%</div></div>
+  </div>
+
+  <div class="section-title" style="margin-top:8px">Segment Distribution</div>
+  <div class="seg-dist">
+    <div id="seg-bars"></div>
+  </div>
+
+  <div class="section-title" style="margin-top:24px">Your Statistics</div>
+  <div class="player-stats-row">
+    <div class="pstat"><div class="pl">Your Spins</div><div class="pv" id="p-spins">--</div></div>
+    <div class="pstat"><div class="pl">Total Bet</div><div class="pv" id="p-bet">--</div></div>
+    <div class="pstat"><div class="pl">Total Won</div><div class="pv" id="p-won">--</div></div>
+    <div class="pstat"><div class="pl">Net PnL</div><div class="pv" id="p-pnl">--</div></div>
+  </div>
+</div>
+
+<!-- ═══ HISTORY PANEL ═════════════════════════════════════════ -->
+<div id="tab-history" class="panel">
+  <div class="section-title">Recent Spin History (Last 20)</div>
+  <div class="history-wrap">
+    <table>
+      <thead><tr>
+        <th>#</th><th>Date / Time</th><th>Bet</th><th>Segment</th><th>Payout</th><th>Spin P&amp;L</th>
+      </tr></thead>
+      <tbody id="history-body">
+        <tr><td colspan="6" class="empty-msg loading">Connect wallet to view history…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══ POOL PANEL ════════════════════════════════════════════ -->
+<div id="tab-pool" class="panel">
+  <div class="form-box">
+    <h2>💰 Fund the Prize Pool</h2>
+    <p>Seed the pool with KAVI tokens. Anyone can contribute — funds are locked and only paid out through game wins.</p>
+    <div class="info-line"><span class="k">Current Pool</span><span class="v" id="fund-pool-bal">--</span></div>
+    <div class="info-line" style="margin-bottom:16px"><span class="k">Your KAVI Balance</span><span class="v" id="fund-kavi-bal">--</span></div>
+    <input type="number" class="form-input" id="fund-amount" placeholder="Amount in KAVI…" step="any" min="0"/>
+    <button class="form-btn" id="fund-btn" onclick="executeFundPool()">Deposit to Pool</button>
+    <p class="form-note">ℹ️ This requires two transactions: (1) Approve KAVI, (2) Fund pool.</p>
+  </div>
+</div>
+
+<!-- ═══ ADMIN PANEL ═══════════════════════════════════════════ -->
+<div id="tab-admin" class="panel">
+  <div class="form-box">
+    <h2>⚙️ Admin: Update Min Bet</h2>
+    <p>Change the minimum bet amount. Only the admin wallet can perform this action.</p>
+    <div class="info-line" style="margin-bottom:16px"><span class="k">Current Min Bet</span><span class="v" id="admin-minbet">--</span></div>
+    <input type="number" class="form-input" id="new-minbet" placeholder="New min bet in KAVI…" step="any" min="0"/>
+    <button class="form-btn" id="admin-btn" onclick="executeSetMinBet()">Update Min Bet</button>
+    <p class="form-note">⚠️ This is permanent and affects all future spins immediately.</p>
+  </div>
+  <div class="form-box" style="margin-top:20px;max-width:500px;margin-left:auto;margin-right:auto">
+    <h2>📋 Contract Info</h2>
+    <div class="info-line"><span class="k">Contract</span><span class="v"><a class="bscscan" id="contract-link" target="_blank">View on BSCScan ↗</a></span></div>
+    <div class="info-line"><span class="k">Token</span><span class="v"><a class="bscscan" id="token-link" target="_blank">View on BSCScan ↗</a></span></div>
+    <div class="info-line"><span class="k">Fee Wallet</span><span class="v" id="fee-wallet-display">--</span></div>
+    <div class="info-line"><span class="k">Fee</span><span class="v">5% per spin</span></div>
+    <div class="info-line"><span class="k">Burn</span><span class="v">10% per spin</span></div>
+  </div>
+</div>
+
+<!-- ═══ RESULT MODAL ══════════════════════════════════════════ -->
+<div id="result-modal">
+  <div class="result-box">
+    <span class="result-emoji" id="r-emoji">🎡</span>
+    <div class="result-seg" id="r-seg">SPIN!</div>
+    <div class="result-rows">
+      <div class="result-row"><span class="rk">Bet</span><span class="rv" id="r-bet">--</span></div>
+      <div class="result-row"><span class="rk">Multiplier</span><span class="rv" id="r-mul">--</span></div>
+      <div class="result-row"><span class="rk">Payout</span><span class="rv" id="r-pay">--</span></div>
+    </div>
+    <div class="result-pnl" id="r-pnl">--</div>
+    <button id="result-close" onclick="closeResult()">Close</button>
+  </div>
+</div>
+
+<!-- ═══ NOTIFICATION ══════════════════════════════════════════ -->
+<div id="notif"></div>
+
+<script>
+// ══════════════════════════════════════════════════════
+//  CONFIG
+// ══════════════════════════════════════════════════════
+const CONTRACT_ADDRESS = "0x8B940E0318aCC07AbDDb4F03538218Fc728FCf8F";
+const BSC_CHAIN_ID = 56n;
+const BSC_CHAIN_HEX = "0x38";
+
+const WHEEL_ABI = [
+  "function kaviToken() view returns (address)",
+  "function feeWallet() view returns (address)",
+  "function admin() view returns (address)",
+  "function MIN_BET() view returns (uint256)",
+  "function poolBalance() view returns (uint256)",
+  "function currentMaxBet() view returns (uint256)",
+  "function globalStats() view returns (uint256,uint256,uint256,uint256,uint256,uint256,address,uint256)",
+  "function playerStats(address) view returns (uint256,uint256,uint256,int256)",
+  "function segmentStats() view returns (uint256[8])",
+  "function getWheelConfig() view returns (string[],uint8[],uint16[])",
+  "function getPlayerRecentHistory(address,uint256) view returns (tuple(uint128 betAmount,uint128 payout,uint8 segment,uint32 timestamp)[])",
+  "function spin(uint256) external",
+  "function fundPool(uint256) external",
+  "function setMinBet(uint256) external",
+  "event WheelSpun(address indexed,uint256,uint8 indexed,uint256,uint256,uint256,uint256,uint256)",
+  "event PoolFunded(address indexed,uint256)",
+  "event MinBetUpdated(address indexed,uint256,uint256)"
+];
+
+const ERC20_ABI = [
+  "function approve(address,uint256) returns (bool)",
+  "function allowance(address,address) view returns (uint256)",
+  "function balanceOf(address) view returns (uint256)",
+  "function decimals() view returns (uint8)",
+  "function symbol() view returns (string)"
+];
+
+// ══════════════════════════════════════════════════════
+//  SEGMENT DEFINITIONS
+// ══════════════════════════════════════════════════════
+const SEGS = [
+  {name:"BUST",   prob:55, mul:0,    color:"#1C1C1E", textColor:"#666666", emoji:"💀"},
+  {name:"HALF",   prob:10, mul:0.5,  color:"#7F1D1D", textColor:"#FCA5A5", emoji:"🔴"},
+  {name:"RETURN", prob:10, mul:1,    color:"#78350F", textColor:"#FCD34D", emoji:"🟡"},
+  {name:"WIN",    prob:10, mul:1.5,  color:"#14532D", textColor:"#86EFAC", emoji:"🟢"},
+  {name:"DOUBLE", prob:7,  mul:2,    color:"#1E3A5F", textColor:"#93C5FD", emoji:"🔵"},
+  {name:"TRIPLE", prob:5,  mul:3,    color:"#4C1D95", textColor:"#D8B4FE", emoji:"💜"},
+  {name:"5X",     prob:2,  mul:5,    color:"#9A3412", textColor:"#FB923C", emoji:"🔥"},
+  {name:"JACKPOT",prob:1,  mul:10,   color:"#92400E", textColor:"#FFD700", emoji:"🏆"},
+];
+// Rotation to bring each segment's center to the top pointer
+const SEG_TARGETS = [261, 144, 108, 72, 41.4, 19.8, 7.2, 1.8];
+
+// ══════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════
+let provider, signer, wheel, kavi;
+let userAddr = null;
+let kaviDec = 18, kaviSym = "KAVI";
+let kaviAddr = null;
+let isAdmin = false;
+let isSpinning = false;
+let wheelRot = 0; // total rotation degrees accumulated
+let rafId = null;
+let minBetWei = 0n, maxBetWei = 0n;
+let notifTimer = null;
+
+// ══════════════════════════════════════════════════════
+//  DRAW WHEEL
+// ══════════════════════════════════════════════════════
+function drawWheel() {
+  const canvas = document.getElementById('wheel-canvas');
+  const ctx = canvas.getContext('2d');
+  const cx = canvas.width / 2, cy = canvas.height / 2, r = cx - 6;
+
+  // Background
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  let angle = -Math.PI / 2; // start from top (12 o'clock)
+
+  SEGS.forEach((seg, idx) => {
+    const sweep = (seg.prob / 100) * 2 * Math.PI;
+    const end = angle + sweep;
+
+    // Fill segment
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, angle, end);
+    ctx.closePath();
+    ctx.fillStyle = seg.color;
+    ctx.fill();
+
+    // Gold divider line
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, angle, end);
+    ctx.closePath();
+    ctx.strokeStyle = 'rgba(255,215,0,0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Label at 70% radius
+    const mid = angle + sweep / 2;
+    const tr = r * 0.68;
+    const tx = cx + tr * Math.cos(mid);
+    const ty = cy + tr * Math.sin(mid);
+
+    ctx.save();
+    ctx.translate(tx, ty);
+
+    // Rotate text: for bottom half add π to flip
+    let rot = mid;
+    if (mid > Math.PI / 2 && mid < 3 * Math.PI / 2) rot = mid + Math.PI;
+    ctx.rotate(rot);
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    if (seg.prob >= 5) {
+      // Name
+      ctx.fillStyle = seg.textColor;
+      ctx.font = `bold ${Math.min(13, seg.prob * 0.55 + 5)}px Cinzel, serif`;
+      ctx.fillText(seg.name, 0, -6);
+      // Multiplier
+      ctx.font = `bold ${Math.min(11, seg.prob * 0.4 + 5)}px JetBrains Mono, monospace`;
+      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      ctx.fillText(seg.mul + 'x', 0, 7);
+    } else if (seg.prob >= 2) {
+      ctx.fillStyle = seg.textColor;
+      ctx.font = 'bold 10px Cinzel, serif';
+      ctx.fillText(seg.name, 0, -4);
+      ctx.font = 'bold 9px JetBrains Mono, monospace';
+      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      ctx.fillText(seg.mul + 'x', 0, 6);
+    } else {
+      // JACKPOT (1%) — just emoji-sized dot
+      ctx.fillStyle = seg.textColor;
+      ctx.font = 'bold 9px Cinzel, serif';
+      ctx.fillText('🏆', 0, 0);
+    }
+
+    ctx.restore();
+    angle = end;
+  });
+
+  // Draw tick marks at segment boundaries
+  angle = -Math.PI / 2;
+  ctx.strokeStyle = 'rgba(255,215,0,0.7)';
+  ctx.lineWidth = 2;
+  SEGS.forEach(seg => {
+    ctx.beginPath();
+    ctx.moveTo(cx + (r-10)*Math.cos(angle), cy + (r-10)*Math.sin(angle));
+    ctx.lineTo(cx + r*Math.cos(angle), cy + r*Math.sin(angle));
+    ctx.stroke();
+    angle += (seg.prob / 100) * 2 * Math.PI;
+  });
+
+  // Outer ring glow effect
+  const grad = ctx.createRadialGradient(cx, cy, r-8, cx, cy, r);
+  grad.addColorStop(0, 'transparent');
+  grad.addColorStop(1, 'rgba(255,215,0,0.15)');
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, 2*Math.PI);
+  ctx.fillStyle = grad;
+  ctx.fill();
+}
+
+// ══════════════════════════════════════════════════════
+//  LEGEND
+// ══════════════════════════════════════════════════════
+function buildLegend() {
+  const el = document.getElementById('legend');
+  el.innerHTML = '';
+  SEGS.forEach(s => {
+    const d = document.createElement('div');
+    d.className = 'leg-item';
+    d.style.background = s.color + '55';
+    d.style.borderColor = s.color + '88';
+    d.innerHTML = `<div class="leg-dot" style="background:${s.textColor}"></div>
+      <span style="color:${s.textColor}">${s.emoji} ${s.name}</span>
+      <span style="color:rgba(255,255,255,0.4);margin-left:2px">${s.prob}%</span>`;
+    el.appendChild(d);
+  });
+}
+
+// ══════════════════════════════════════════════════════
+//  WALLET CONNECTION
+// ══════════════════════════════════════════════════════
+async function connectWallet() {
+  if (!window.ethereum) { notify("Please install MetaMask!", "error"); return; }
+  try {
+    await window.ethereum.request({method:'eth_requestAccounts'});
+    provider = new ethers.BrowserProvider(window.ethereum);
+    const net = await provider.getNetwork();
+    if (net.chainId !== BSC_CHAIN_ID) {
+      await switchBSC(); return;
+    }
+    await initContracts();
+  } catch(e) { notify(e.message || "Connection failed", "error"); }
+}
+
+async function switchBSC() {
+  try {
+    await window.ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:BSC_CHAIN_HEX}]});
+    await initContracts();
+  } catch(e) {
+    if (e.code === 4902) {
+      await window.ethereum.request({method:'wallet_addEthereumChain',params:[{
+        chainId:BSC_CHAIN_HEX,chainName:'BNB Smart Chain',
+        nativeCurrency:{name:'BNB',symbol:'BNB',decimals:18},
+        rpcUrls:['https://bsc-dataseed.binance.org/'],
+        blockExplorerUrls:['https://bscscan.com/']
+      }]});
+      await initContracts();
+    }
+  }
+}
+
+async function initContracts() {
+  signer = await provider.getSigner();
+  userAddr = await signer.getAddress();
+  wheel = new ethers.Contract(CONTRACT_ADDRESS, WHEEL_ABI, signer);
+  kaviAddr = await wheel.kaviToken();
+  kavi = new ethers.Contract(kaviAddr, ERC20_ABI, signer);
+  kaviDec = Number(await kavi.decimals());
+  kaviSym = await kavi.symbol();
+  const adminAddr = await wheel.admin();
+  isAdmin = adminAddr.toLowerCase() === userAddr.toLowerCase();
+
+  // Update UI
+  document.getElementById('connect-btn').textContent =
+    userAddr.slice(0,6) + '...' + userAddr.slice(-4);
+  document.getElementById('hdr-net').textContent = 'BSC ✓';
+  document.getElementById('hdr-net').style.color = '#22FF88';
+  if (isAdmin) {
+    document.getElementById('admin-tab').style.display = '';
+    // contract info
+    const fe = await wheel.feeWallet();
+    document.getElementById('fee-wallet-display').textContent = shortAddr(fe);
+    document.getElementById('admin-minbet').textContent = '…';
+  }
+  const cl = document.getElementById('contract-link');
+  cl.href = `https://bscscan.com/address/${CONTRACT_ADDRESS}`;
+  cl.textContent = shortAddr(CONTRACT_ADDRESS) + ' ↗';
+  const tl = document.getElementById('token-link');
+  tl.href = `https://bscscan.com/address/${kaviAddr}`;
+  tl.textContent = shortAddr(kaviAddr) + ' ↗';
+
+  window.ethereum.on('accountsChanged', ()=>window.location.reload());
+  window.ethereum.on('chainChanged', ()=>window.location.reload());
+
+  await loadAll();
+  notify("Wallet connected successfully!", "success");
+}
+
+// ══════════════════════════════════════════════════════
+//  DATA LOADERS
+// ══════════════════════════════════════════════════════
+async function loadAll() {
+  await Promise.all([loadPool(), loadPlayer(), loadGlobal(), loadHistory()]);
+}
+
+async function loadPool() {
+  if (!wheel) return;
+  try {
+    const [pool, min, max] = await Promise.all([
+      wheel.poolBalance(), wheel.MIN_BET(), wheel.currentMaxBet()
+    ]);
+    minBetWei = min; maxBetWei = max;
+    const pf = fmt(pool);
+    document.getElementById('pool-bal').textContent = pf + ' ' + kaviSym;
+    document.getElementById('hdr-pool').textContent = pf + ' ' + kaviSym;
+    document.getElementById('min-bet').textContent = fmt(min) + ' ' + kaviSym;
+    document.getElementById('max-bet').textContent = fmt(max) + ' ' + kaviSym;
+    document.getElementById('fund-pool-bal').textContent = pf + ' ' + kaviSym;
+    document.getElementById('admin-minbet').textContent = fmt(min) + ' ' + kaviSym;
+  } catch(e) { console.error(e); }
+}
+
+async function loadPlayer() {
+  if (!wheel || !userAddr) return;
+  try {
+    const [bal, ps] = await Promise.all([
+      kavi.balanceOf(userAddr),
+      wheel.playerStats(userAddr)
+    ]);
+    document.getElementById('kavi-balance').textContent = fmt(bal) + ' ' + kaviSym;
+    document.getElementById('fund-kavi-bal').textContent = fmt(bal) + ' ' + kaviSym;
+    document.getElementById('p-spins').textContent = ps[0].toString();
+    document.getElementById('p-bet').textContent = fmt(ps[1]) + ' ' + kaviSym;
+    document.getElementById('p-won').textContent = fmt(ps[2]) + ' ' + kaviSym;
+    const pnl = ps[3];
+    const pnlEl = document.getElementById('p-pnl');
+    const isPos = pnl >= 0n;
+    const pnlAbs = isPos ? pnl : -pnl;
+    pnlEl.textContent = (isPos?'+':'-') + fmt(pnlAbs) + ' ' + kaviSym;
+    pnlEl.style.color = isPos ? 'var(--green)' : 'var(--red)';
+  } catch(e) { console.error(e); }
+}
+
+async function loadGlobal() {
+  if (!wheel) return;
+  try {
+    const [gs, ss] = await Promise.all([wheel.globalStats(), wheel.segmentStats()]);
+    document.getElementById('s-spins').textContent = gs[0].toString();
+    document.getElementById('s-vol').textContent = fmt(gs[1]) + ' ' + kaviSym;
+    document.getElementById('s-paid').textContent = fmt(gs[2]) + ' ' + kaviSym;
+    document.getElementById('s-burned').textContent = fmt(gs[3]) + ' ' + kaviSym;
+    document.getElementById('s-fees').textContent = fmt(gs[4]) + ' ' + kaviSym;
+    document.getElementById('s-pool').textContent = fmt(gs[5]) + ' ' + kaviSym;
+    document.getElementById('s-topwin').textContent = fmt(gs[7]) + ' ' + kaviSym;
+    document.getElementById('s-topwinner').textContent = gs[6] === '0x0000000000000000000000000000000000000000' ? 'None yet' : shortAddr(gs[6]);
+
+    // Segment bars
+    const total = ss.reduce((a,b)=>a+b, 0n);
+    const barContainer = document.getElementById('seg-bars');
+    barContainer.innerHTML = '';
+    SEGS.forEach((seg,i) => {
+      const cnt = ss[i];
+      const pct = total > 0n ? Number(cnt * 1000n / total) / 10 : 0;
+      const row = document.createElement('div');
+      row.className = 'seg-bar-row';
+      row.innerHTML = `
+        <div class="seg-bar-label" style="color:${seg.textColor}">${seg.emoji} ${seg.name}</div>
+        <div class="seg-bar-track">
+          <div class="seg-bar-fill" style="width:${pct}%;background:${seg.color};border:1px solid ${seg.textColor}44">
+            ${pct>3?`<span>${pct.toFixed(1)}%</span>`:''}
+          </div>
+        </div>
+        <div class="seg-bar-count">${cnt.toString()} hits</div>`;
+      barContainer.appendChild(row);
+    });
+  } catch(e) { console.error(e); }
+}
+
+async function loadHistory() {
+  const tbody = document.getElementById('history-body');
+  if (!wheel || !userAddr) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-msg loading">Connect wallet to view history…</td></tr>';
+    return;
+  }
+  try {
+    const recs = await wheel.getPlayerRecentHistory(userAddr, 20n);
+    if (!recs || recs.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">No spins yet — spin the wheel!</td></tr>';
+      return;
+    }
+    tbody.innerHTML = '';
+    const arr = [...recs].reverse();
+    arr.forEach((r,i) => {
+      const seg = SEGS[Number(r.segment)];
+      const bet = BigInt(r.betAmount);
+      const pay = BigInt(r.payout);
+      const pnl = pay - bet;
+      const isPos = pnl >= 0n;
+      const ts = new Date(Number(r.timestamp) * 1000);
+      const dateStr = ts.toLocaleDateString() + ' ' + ts.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="color:var(--dim)">${recs.length - i}</td>
+        <td style="color:var(--dim);font-size:.72rem">${dateStr}</td>
+        <td>${fmt(bet)} ${kaviSym}</td>
+        <td>
+          <span class="seg-badge" style="background:${seg.color};color:${seg.textColor}">
+            ${seg.emoji} ${seg.name}
+          </span>
+        </td>
+        <td>${fmt(pay)} ${kaviSym}</td>
+        <td style="color:${isPos?'var(--green)':'var(--red)'};font-weight:700">
+          ${isPos?'+':'-'}${fmt(isPos?pnl:-pnl)} ${kaviSym}
+        </td>`;
+      tbody.appendChild(tr);
+    });
+  } catch(e) {
+    console.error(e);
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">Failed to load history.</td></tr>';
+  }
+}
+
+// ══════════════════════════════════════════════════════
+//  SPIN
+// ══════════════════════════════════════════════════════
+async function executeSpin() {
+  if (!userAddr) { notify("Connect your wallet first!", "error"); return; }
+  if (isSpinning) return;
+
+  const input = document.getElementById('bet-amount').value;
+  const betNum = parseFloat(input);
+  if (isNaN(betNum) || betNum <= 0) { notify("Enter a valid bet amount.", "error"); return; }
+
+  let betWei;
+  try { betWei = ethers.parseUnits(betNum.toString(), kaviDec); } catch { notify("Invalid amount.", "error"); return; }
+
+  if (betWei < minBetWei) { notify(`Minimum bet is ${fmt(minBetWei)} ${kaviSym}`, "error"); return; }
+  if (betWei > maxBetWei) { notify(`Maximum bet is ${fmt(maxBetWei)} ${kaviSym}`, "error"); return; }
+
+  isSpinning = true;
+  const btn = document.getElementById('spin-btn');
+  btn.disabled = true;
+  btn.classList.add('spinning');
+  btn.textContent = '⏳ Processing…';
+
+  try {
+    // Check/grant allowance
+    const allow = await kavi.allowance(userAddr, CONTRACT_ADDRESS);
+    if (allow < betWei) {
+      notify("Step 1/2: Approving KAVI…", "info");
+      const atx = await kavi.approve(CONTRACT_ADDRESS, ethers.MaxUint256);
+      await atx.wait();
+      notify("Approved! Sending spin…", "success");
+    }
+
+    // Start wheel spinning
+    startSpin();
+    notify("Step 2/2: Spin transaction sent…", "info");
+
+    const tx = await wheel.spin(betWei);
+    const receipt = await tx.wait();
+
+    // Parse WheelSpun event
+    let segment = 0, mulX100 = 0n, payout = 0n;
+    const iface = new ethers.Interface(WHEEL_ABI);
+    for (const log of receipt.logs) {
+      try {
+        const parsed = iface.parseLog({topics:[...log.topics], data:log.data});
+        if (parsed && parsed.name === 'WheelSpun') {
+          segment = Number(parsed.args[2]);
+          mulX100 = parsed.args[3];
+          payout = parsed.args[4];
+          break;
+        }
+      } catch {}
+    }
+
+    // Animate wheel to result
+    await animateTo(segment);
+
+    // Show result
+    showResult(segment, betWei, payout, mulX100);
+    await loadAll();
+
+  } catch(e) {
+    console.error(e);
+    stopSpin();
+    notify(e.reason || e.message || "Transaction failed", "error");
+  } finally {
+    isSpinning = false;
+    btn.disabled = false;
+    btn.classList.remove('spinning');
+    btn.textContent = '🎡 SPIN NOW';
+  }
+}
+
+// ══════════════════════════════════════════════════════
+//  WHEEL ANIMATION
+// ══════════════════════════════════════════════════════
+let spinSpeed = 0;
+
+function startSpin() {
+  const wrapper = document.getElementById('wheel-wrapper');
+  wrapper.style.transition = 'none';
+  spinSpeed = 5;
+  function tick() {
+    if (!isSpinning) return;
+    spinSpeed = Math.min(spinSpeed + 0.3, 12);
+    wheelRot += spinSpeed;
+    wrapper.style.transform = `rotate(${wheelRot}deg)`;
+    rafId = requestAnimationFrame(tick);
+  }
+  rafId = requestAnimationFrame(tick);
+}
+
+function stopSpin() {
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  spinSpeed = 0;
+}
+
+async function animateTo(seg) {
+  stopSpin();
+  const wrapper = document.getElementById('wheel-wrapper');
+
+  const target = SEG_TARGETS[seg];
+  const currentMod = ((wheelRot % 360) + 360) % 360;
+  let delta = target - currentMod;
+  if (delta <= 0) delta += 360;
+
+  const finalAngle = wheelRot + delta + 8 * 360; // 8 extra full spins for drama
+
+  // Force reflow
+  void wrapper.offsetHeight;
+  wrapper.style.transition = 'transform 4.5s cubic-bezier(0.23,1,0.32,1)';
+  wrapper.style.transform = `rotate(${finalAngle}deg)`;
+  wheelRot = finalAngle;
+
+  return new Promise(r => setTimeout(r, 4700));
+}
+
+// ══════════════════════════════════════════════════════
+//  RESULT MODAL
+// ══════════════════════════════════════════════════════
+function showResult(seg, bet, payout, mulX100) {
+  const s = SEGS[seg];
+  const pnl = payout - bet;
+  const isPos = pnl >= 0n;
+
+  document.getElementById('r-emoji').textContent = s.emoji;
+  document.getElementById('r-seg').textContent = s.name;
+  document.getElementById('r-seg').style.color = s.textColor;
+  document.getElementById('r-bet').textContent = fmt(bet) + ' ' + kaviSym;
+  document.getElementById('r-mul').textContent = (Number(mulX100)/100).toFixed(1) + 'x';
+  document.getElementById('r-pay').textContent = fmt(payout) + ' ' + kaviSym;
+
+  const pnlEl = document.getElementById('r-pnl');
+  if (seg === 0) {
+    pnlEl.textContent = '💀 BUSTED!';
+    pnlEl.style.color = 'var(--red)';
+  } else {
+    pnlEl.textContent = (isPos?'▲ +':'▼ ') + fmt(isPos?pnl:-pnl) + ' ' + kaviSym;
+    pnlEl.style.color = isPos ? 'var(--green)' : 'var(--red)';
+  }
+
+  // Result box border glow
+  const modal = document.getElementById('result-modal');
+  const box = modal.querySelector('.result-box');
+  box.style.borderColor = s.textColor + '66';
+  box.style.boxShadow = `0 0 60px ${s.textColor}33`;
+  modal.classList.add('show');
+
+  // Jackpot sparkles
+  if (seg >= 6) spawnSparkles(seg === 7 ? 30 : 15, s.textColor);
+}
+
+function closeResult() {
+  document.getElementById('result-modal').classList.remove('show');
+}
+
+function spawnSparkles(count, color) {
+  for (let i = 0; i < count; i++) {
+    setTimeout(() => {
+      const el = document.createElement('div');
+      el.className = 'sparkle';
+      el.textContent = ['✨','⭐','🌟','💫','⚡'][Math.floor(Math.random()*5)];
+      el.style.left = Math.random()*100 + 'vw';
+      el.style.top = '-40px';
+      el.style.animationDuration = (1.5 + Math.random()) + 's';
+      document.body.appendChild(el);
+      setTimeout(()=>el.remove(), 3000);
+    }, i * 80);
+  }
+}
+
+// ══════════════════════════════════════════════════════
+//  FUND POOL
+// ══════════════════════════════════════════════════════
+async function executeFundPool() {
+  if (!userAddr) { notify("Connect wallet first!", "error"); return; }
+  const input = document.getElementById('fund-amount').value;
+  const num = parseFloat(input);
+  if (isNaN(num) || num <= 0) { notify("Enter a valid amount.", "error"); return; }
+
+  const btn = document.getElementById('fund-btn');
+  btn.disabled = true;
+  try {
+    const amtWei = ethers.parseUnits(num.toString(), kaviDec);
+    const allow = await kavi.allowance(userAddr, CONTRACT_ADDRESS);
+    if (allow < amtWei) {
+      notify("Approving KAVI…", "info");
+      const atx = await kavi.approve(CONTRACT_ADDRESS, ethers.MaxUint256);
+      await atx.wait();
+    }
+    notify("Funding pool…", "info");
+    const tx = await wheel.fundPool(amtWei);
+    await tx.wait();
+    notify(`✅ Pool funded with ${num} ${kaviSym}!`, "success");
+    document.getElementById('fund-amount').value = '';
+    await loadPool();
+  } catch(e) {
+    notify(e.reason || e.message || "Transaction failed", "error");
+  } finally { btn.disabled = false; }
+}
+
+// ══════════════════════════════════════════════════════
+//  ADMIN: SET MIN BET
+// ══════════════════════════════════════════════════════
+async function executeSetMinBet() {
+  if (!isAdmin) { notify("Not admin!", "error"); return; }
+  const input = document.getElementById('new-minbet').value;
+  const num = parseFloat(input);
+  if (isNaN(num) || num <= 0) { notify("Enter a valid amount.", "error"); return; }
+
+  const btn = document.getElementById('admin-btn');
+  btn.disabled = true;
+  try {
+    const amtWei = ethers.parseUnits(num.toString(), kaviDec);
+    notify("Updating min bet…", "info");
+    const tx = await wheel.setMinBet(amtWei);
+    await tx.wait();
+    notify(`✅ Min bet updated to ${num} ${kaviSym}!`, "success");
+    document.getElementById('new-minbet').value = '';
+    await loadPool();
+  } catch(e) {
+    notify(e.reason || e.message || "Transaction failed", "error");
+  } finally { btn.disabled = false; }
+}
+
+// ══════════════════════════════════════════════════════
+//  QUICK BET BUTTONS
+// ══════════════════════════════════════════════════════
+function setQuickBet(mode) {
+  const input = document.getElementById('bet-amount');
+  if (mode === 'min') {
+    input.value = fmtRaw(minBetWei);
+  } else if (mode === 'max') {
+    input.value = fmtRaw(maxBetWei);
+  } else {
+    // percentage of max
+    const pct = parseFloat(mode);
+    const val = (Number(ethers.formatUnits(maxBetWei, kaviDec)) * pct);
+    input.value = val.toFixed(4);
+  }
+}
+
+// ══════════════════════════════════════════════════════
+//  TABS
+// ══════════════════════════════════════════════════════
+function showTab(name, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+  if (name === 'history') loadHistory();
+  if (name === 'stats') loadGlobal();
+}
+
+// ══════════════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════════════
+function fmt(wei) {
+  try {
+    const n = parseFloat(ethers.formatUnits(BigInt(wei.toString()), kaviDec));
+    if (n >= 1e6) return (n/1e6).toFixed(2) + 'M';
+    if (n >= 1e3) return (n/1e3).toFixed(2) + 'K';
+    if (n >= 10) return n.toFixed(2);
+    return n.toFixed(4);
+  } catch { return '--'; }
+}
+function fmtRaw(wei) {
+  try { return ethers.formatUnits(BigInt(wei.toString()), kaviDec); } catch { return '0'; }
+}
+function shortAddr(a) {
+  if (!a || a === '0x0000000000000000000000000000000000000000') return '—';
+  return a.slice(0,6) + '…' + a.slice(-4);
+}
+function notify(msg, type='info') {
+  const el = document.getElementById('notif');
+  el.textContent = msg;
+  el.className = `show ${type}`;
+  if (notifTimer) clearTimeout(notifTimer);
+  notifTimer = setTimeout(() => { el.className = ''; }, 4500);
+}
+
+// ══════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', () => {
+  drawWheel();
+  buildLegend();
+
+  // Auto-connect if already authorized
+  if (window.ethereum) {
+    window.ethereum.request({method:'eth_accounts'}).then(accs => {
+      if (accs.length > 0) connectWallet();
+    }).catch(()=>{});
+  }
+});
+</script>
+</body>
+</html>
