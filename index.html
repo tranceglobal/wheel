@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KAVI — Wheel of Fortune</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Exo+2:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --gold:#c9a227;--gold-hi:#f5e070;--gold-lo:#7a6010;
+  --bg:#04020a;--bg2:#0d0818;--bg3:#160e22;
+  --text:#e8d5b7;--muted:#8a7a6a;
+  --ok:#2ecc71;--err:#e74c3c;
+}
+
+html,body{height:100%}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Exo 2',sans-serif;
+  min-height:100vh;
+  overflow-x:hidden;
+}
+
+/* ── Stars layer ── */
+#starsBg{
+  position:fixed;inset:0;
+  pointer-events:none;z-index:0;
+}
+
+/* ── App shell ── */
+#app{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column}
+
+/* ── Header ── */
+header{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:1rem 2rem;
+  border-bottom:1px solid rgba(201,162,39,.2);
+  background:rgba(4,2,10,.88);
+  backdrop-filter:blur(14px);
+  position:sticky;top:0;z-index:100;
+}
+.logo{
+  font-family:'Cinzel',serif;font-size:1.55rem;font-weight:900;
+  letter-spacing:7px;color:var(--gold);
+  text-shadow:0 0 30px rgba(201,162,39,.45);
+}
+.logo-tag{
+  font-size:.6rem;letter-spacing:4px;color:var(--muted);
+  text-transform:uppercase;margin-top:-3px;
+}
+
+#walletBtn{
+  background:transparent;
+  border:1px solid var(--gold);color:var(--gold);
+  font-family:'Exo 2',sans-serif;font-weight:600;
+  font-size:.78rem;letter-spacing:2px;text-transform:uppercase;
+  padding:.5rem 1.3rem;cursor:pointer;border-radius:1px;
+  transition:all .25s;
+}
+#walletBtn:hover{background:rgba(201,162,39,.1);box-shadow:0 0 18px rgba(201,162,39,.35);}
+#walletBtn.ok{border-color:var(--ok);color:var(--ok);}
+
+/* ── Network banner ── */
+#netBanner{
+  display:none;text-align:center;padding:.45rem;
+  background:rgba(231,76,60,.12);
+  border-bottom:1px solid rgba(231,76,60,.35);
+  font-size:.78rem;letter-spacing:1px;color:var(--err);
+}
+#netBanner.show{display:block}
+
+/* ── Main ── */
+main{
+  flex:1;display:flex;flex-direction:column;
+  align-items:center;gap:1.4rem;
+  padding:2rem 1rem 3rem;
+}
+
+/* ── Page heading ── */
+.hd h1{
+  font-family:'Cinzel',serif;
+  font-size:clamp(1.5rem,4vw,2.4rem);
+  font-weight:900;letter-spacing:8px;text-align:center;
+  background:linear-gradient(175deg,var(--gold-hi),var(--gold),var(--gold-lo));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;line-height:1.1;
+}
+.hd p{
+  font-size:.7rem;letter-spacing:3px;color:var(--muted);
+  text-transform:uppercase;text-align:center;margin-top:.45rem;
+}
+
+/* ── Pool badge ── */
+.pool-badge{
+  border:1px solid rgba(201,162,39,.28);
+  background:rgba(201,162,39,.04);
+  padding:.45rem 2.2rem;text-align:center;
+}
+.pool-badge .lbl{font-size:.62rem;letter-spacing:3px;text-transform:uppercase;color:var(--muted);}
+.pool-badge .val{font-size:1.2rem;font-weight:700;color:var(--gold);letter-spacing:1px;}
+
+/* ── Wheel section ── */
+.wheel-section{
+  position:relative;display:flex;
+  align-items:center;justify-content:center;
+}
+.pointer{
+  position:absolute;top:-4px;left:50%;transform:translateX(-50%);
+  z-index:10;width:0;height:0;
+  border-left:12px solid transparent;
+  border-right:12px solid transparent;
+  border-top:26px solid var(--gold-hi);
+  filter:drop-shadow(0 0 7px var(--gold)) drop-shadow(0 0 14px rgba(201,162,39,.5));
+}
+.wheel-wrap{
+  position:relative;
+  width:clamp(290px,80vw,450px);
+  height:clamp(290px,80vw,450px);
+}
+#wheelCanvas{
+  width:100%;height:100%;display:block;
+  filter:drop-shadow(0 0 28px rgba(201,162,39,.22));
+}
+
+/* ── Centre SPIN button ── */
+#spinBtn{
+  position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:clamp(74px,17vw,96px);
+  height:clamp(74px,17vw,96px);
+  border-radius:50%;
+  border:3px solid var(--gold-hi);
+  background:radial-gradient(circle at 38% 32%,#f8ea80,#c9a227 48%,#7a6010 100%);
+  color:#140900;
+  font-family:'Cinzel',serif;
+  font-size:clamp(.6rem,1.8vw,.88rem);
+  font-weight:900;letter-spacing:2px;text-transform:uppercase;
+  cursor:pointer;z-index:20;
+  box-shadow:
+    0 0 20px rgba(201,162,39,.85),
+    0 0 45px rgba(201,162,39,.3),
+    inset 0 -4px 9px rgba(0,0,0,.4),
+    inset 0 3px 5px rgba(255,255,255,.28);
+  transition:box-shadow .2s,transform .15s;
+}
+#spinBtn:hover:not(:disabled){
+  box-shadow:
+    0 0 32px rgba(201,162,39,1),
+    0 0 64px rgba(201,162,39,.5),
+    inset 0 -4px 9px rgba(0,0,0,.4),
+    inset 0 3px 5px rgba(255,255,255,.28);
+  transform:translate(-50%,-50%) scale(1.07);
+}
+#spinBtn:active:not(:disabled){transform:translate(-50%,-50%) scale(.94);}
+#spinBtn:disabled{cursor:not-allowed;filter:brightness(.65);}
+@keyframes btnGlow{
+  0%,100%{box-shadow:0 0 20px rgba(201,162,39,.85),0 0 45px rgba(201,162,39,.3),inset 0 -4px 9px rgba(0,0,0,.4);}
+  50%     {box-shadow:0 0 38px rgba(201,162,39,1),  0 0 80px rgba(201,162,39,.55),inset 0 -4px 9px rgba(0,0,0,.4);}
+}
+#spinBtn.glow{animation:btnGlow .75s infinite;}
+
+/* ── Status ── */
+#status{
+  font-size:.84rem;letter-spacing:1px;text-align:center;
+  min-height:1.4em;color:var(--muted);transition:color .3s;
+}
+#status.err{color:var(--err);}
+#status.ok{color:var(--ok);}
+#status.info{color:var(--gold);}
+
+/* ── Bet area ── */
+.bet-wrap{width:100%;max-width:450px;display:flex;flex-direction:column;gap:.7rem;}
+
+.bet-top{display:flex;justify-content:space-between;align-items:baseline;}
+.bet-lbl{font-size:.68rem;letter-spacing:3px;text-transform:uppercase;color:var(--muted);}
+.bet-bal{font-size:.7rem;color:var(--muted);display:none;}
+.bet-bal.show{display:block;}
+.bet-bal span{color:var(--text);font-weight:600;}
+
+.bet-row{
+  display:flex;align-items:stretch;height:52px;
+  border:1px solid rgba(201,162,39,.32);
+  background:rgba(201,162,39,.03);
+}
+.adj{
+  background:rgba(201,162,39,.07);border:none;
+  color:var(--gold);width:48px;font-size:1.5rem;
+  cursor:pointer;flex-shrink:0;transition:background .2s;
+}
+.adj:hover{background:rgba(201,162,39,.17);}
+.adj:first-child{border-right:1px solid rgba(201,162,39,.18);}
+.adj:last-child {border-left: 1px solid rgba(201,162,39,.18);}
+#betInput{
+  flex:1;background:transparent;border:none;
+  color:var(--text);font-family:'Exo 2',sans-serif;
+  font-size:1.12rem;font-weight:600;
+  text-align:center;outline:none;width:0;
+}
+#betInput::placeholder{color:var(--muted);}
+
+.presets{display:flex;gap:.5rem;}
+.pre{
+  flex:1;background:transparent;
+  border:1px solid rgba(201,162,39,.18);color:var(--muted);
+  font-family:'Exo 2',sans-serif;font-size:.68rem;
+  letter-spacing:2px;text-transform:uppercase;
+  padding:.38rem 0;cursor:pointer;transition:all .2s;
+}
+.pre:hover{border-color:var(--gold);color:var(--gold);background:rgba(201,162,39,.07);}
+
+.maxinfo{font-size:.67rem;color:var(--muted);text-align:right;display:none;}
+.maxinfo.show{display:block;}
+.maxinfo span{color:var(--gold);}
+
+/* ── TX link ── */
+#txlink{font-size:.7rem;color:var(--muted);text-align:center;min-height:1.1em;}
+#txlink a{color:var(--gold-lo);text-decoration:none;}
+#txlink a:hover{color:var(--gold);text-decoration:underline;}
+
+/* ── Divider ── */
+.sep{width:100%;max-width:450px;height:1px;background:linear-gradient(to right,transparent,rgba(201,162,39,.3),transparent);}
+
+/* ── Result overlay ── */
+#resOv{
+  display:none;position:fixed;inset:0;
+  background:rgba(4,2,10,.9);
+  z-index:500;align-items:center;justify-content:center;
+}
+#resOv.show{display:flex;}
+.res-box{
+  background:var(--bg2);
+  border:1px solid var(--gold);
+  padding:2.5rem 2.5rem 2rem;
+  text-align:center;max-width:330px;width:90%;
+  animation:popIn .45s cubic-bezier(.175,.885,.32,1.275) both;
+  box-shadow:0 0 55px rgba(201,162,39,.35);
+}
+@keyframes popIn{from{transform:scale(.45) translateY(50px);opacity:0}to{transform:scale(1) translateY(0);opacity:1}}
+.res-icon{font-size:3.4rem;line-height:1;display:block;margin-bottom:.9rem;}
+.res-name{
+  font-family:'Cinzel',serif;font-size:1.75rem;font-weight:900;
+  letter-spacing:5px;margin-bottom:.35rem;
+}
+.res-name.bust   {color:#777;}
+.res-name.half   {color:#6688ff;}
+.res-name.back   {color:#e6c200;}
+.res-name.win    {color:var(--ok);}
+.res-name.double {color:#44aaff;}
+.res-name.triple {color:#cc55ff;}
+.res-name.fivex  {color:#ff8822;}
+.res-name.jackpot{color:var(--gold-hi);text-shadow:0 0 22px rgba(245,224,112,.85);}
+.res-sub{color:var(--muted);font-size:.92rem;margin-bottom:1.8rem;min-height:1.4em;}
+.res-sub .amt{color:var(--ok);font-size:1.3rem;font-weight:700;}
+.res-close{
+  background:transparent;border:1px solid var(--gold);
+  color:var(--gold);font-family:'Exo 2',sans-serif;
+  font-size:.78rem;font-weight:600;letter-spacing:2px;
+  text-transform:uppercase;padding:.7rem 0;
+  cursor:pointer;width:100%;transition:all .2s;
+}
+.res-close:hover{background:rgba(201,162,39,.1);box-shadow:0 0 14px rgba(201,162,39,.3);}
+
+/* ── Confetti ── */
+#confetti{position:fixed;inset:0;pointer-events:none;z-index:600;display:none;}
+
+/* ── Footer ── */
+footer{
+  text-align:center;padding:.85rem;
+  font-size:.6rem;letter-spacing:2px;color:var(--muted);
+  border-top:1px solid rgba(201,162,39,.1);text-transform:uppercase;
+}
+footer a{color:var(--gold-lo);text-decoration:none;}
+footer a:hover{color:var(--gold);}
+</style>
+</head>
+<body>
+
+<canvas id="starsBg"></canvas>
+<canvas id="confetti"></canvas>
+
+<div id="app">
+  <header>
+    <div>
+      <div class="logo">KAVI</div>
+      <div class="logo-tag">Wheel of Fortune</div>
+    </div>
+    <button id="walletBtn" onclick="connectWallet()">Connect Wallet</button>
+  </header>
+
+  <div id="netBanner">⚠ Please switch to Binance Smart Chain (BSC)</div>
+
+  <main>
+    <div class="hd">
+      <h1>WHEEL OF FORTUNE</h1>
+      <p>Bet KAVI · Spin · Win Big</p>
+    </div>
+
+    <div class="pool-badge">
+      <div class="lbl">Prize Pool</div>
+      <div class="val" id="poolVal">——</div>
+    </div>
+
+    <div class="wheel-section">
+      <div class="pointer"></div>
+      <div class="wheel-wrap">
+        <canvas id="wheelCanvas" width="450" height="450"></canvas>
+        <button id="spinBtn" onclick="handleSpin()">SPIN</button>
+      </div>
+    </div>
+
+    <div id="status">Connect wallet to play</div>
+
+    <div class="sep"></div>
+
+    <div class="bet-wrap">
+      <div class="bet-top">
+        <div class="bet-lbl">Bet Amount · KAVI</div>
+        <div class="bet-bal" id="betBal">Balance: <span id="balDisp">—</span></div>
+      </div>
+      <div class="bet-row">
+        <button class="adj" onclick="adjBet(-1)">−</button>
+        <input id="betInput" type="number" min="0" step="any" placeholder="Enter amount">
+        <button class="adj" onclick="adjBet(1)">+</button>
+      </div>
+      <div class="presets">
+        <button class="pre" onclick="setPreset('min')">Min</button>
+        <button class="pre" onclick="setPreset('half')">½ Max</button>
+        <button class="pre" onclick="setPreset('max')">Max</button>
+      </div>
+      <div class="maxinfo" id="maxInfo">Max bet: <span id="maxDisp">—</span> KAVI</div>
+    </div>
+
+    <div id="txlink"></div>
+  </main>
+
+  <footer>
+    Contract:
+    <a href="https://bscscan.com/address/0x48F0be70305a6243C2cC449C192c6C02ae55d03D" target="_blank" rel="noopener">
+      0x48F0…d03D
+    </a>
+    · BSC · Verified on BSCScan
+  </footer>
+</div>
+
+<!-- Result overlay -->
+<div id="resOv">
+  <div class="res-box">
+    <span class="res-icon" id="resIcon">♛</span>
+    <div class="res-name jackpot" id="resName">JACKPOT</div>
+    <div class="res-sub" id="resSub"></div>
+    <button class="res-close" onclick="closeResult()">Spin Again</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ─────────────── CONFIG ─────────────── */
+const CONTRACT_ADDR = '0x48F0be70305a6243C2cC449C192c6C02ae55d03D';
+const BSC_ID  = 56;
+const BSC_HEX = '0x38';
+
+const ABI = [
+  'function MIN_BET() view returns (uint256)',
+  'function kaviToken() view returns (address)',
+  'function currentMaxBet() view returns (uint256)',
+  'function poolBalance() view returns (uint256)',
+  'function spin(uint256 betAmount)',
+  'event WheelSpun(address indexed player,uint256 betAmount,uint8 indexed segment,uint256 multiplierX100,uint256 payout,uint256 fee,uint256 burned,uint256 poolBalanceAfter)',
+  'error BetTooSmall(uint256 sent,uint256 minRequired)',
+  'error BetTooLarge(uint256 sent,uint256 maxAllowed)',
+  'error PoolEmpty()',
+  'error InsufficientPool(uint256 required,uint256 available)',
+  'error TransferFailed()'
+];
+const ERC20 = [
+  'function approve(address,uint256) returns(bool)',
+  'function balanceOf(address) view returns(uint256)',
+  'function decimals() view returns(uint8)',
+  'function allowance(address,address) view returns(uint256)'
+];
+
+/* ── Known raw error selectors → readable messages ── */
+const ERR_SELECTORS = {
+  '0xe450d38c': 'Token allowance insufficient — approve KAVI first.',
+  '0xfb8f41b2': 'Insufficient KAVI balance in your wallet.',
+  '0x8c379a0':  'Transaction reverted.',
+  '0x7939f424': 'ERC20: transfer amount exceeds allowance.',
+  '0xbfa87d22': 'Token approval failed — try again.',
+};
+
+/* 8 equal segments — visual % same for all */
+const SEGS = [
+  {name:'BUST',    icon:'✕', mul:'0×',   cls:'bust',   bg:'#1d0606', light:'#ff5555'},
+  {name:'HALF',    icon:'½', mul:'0.5×', cls:'half',   bg:'#04041d', light:'#6688ff'},
+  {name:'RETURN',  icon:'↩', mul:'1×',   cls:'back',   bg:'#0b1500', light:'#99dd33'},
+  {name:'WIN',     icon:'★', mul:'1.5×', cls:'win',    bg:'#001508', light:'#33ee77'},
+  {name:'DOUBLE',  icon:'◆', mul:'2×',   cls:'double', bg:'#000b28', light:'#44aaff'},
+  {name:'TRIPLE',  icon:'✦', mul:'3×',   cls:'triple', bg:'#0e0022', light:'#cc55ff'},
+  {name:'5×',      icon:'⚡', mul:'5×',   cls:'fivex',  bg:'#1e0800', light:'#ff8833'},
+  {name:'JACKPOT', icon:'♛', mul:'10×',  cls:'jackpot',bg:'#180f00', light:'#ffd700'},
+];
+
+/* ─────────────── STATE ─────────────── */
+let provider, signer, userAddr, contract, token;
+let decimals  = 18;
+let minBet    = ethers.BigNumber.from(0);
+let maxBet    = ethers.BigNumber.from(0);
+let spinning  = false;
+let wAngle    = 22.5;   // initial display angle (degrees)
+let rafId     = null;
+
+/* ─────────────── CANVAS ─────────────── */
+const wc  = document.getElementById('wheelCanvas');
+const wCtx= wc.getContext('2d');
+const W   = wc.width, H = wc.height;
+const CX  = W/2, CY = H/2;
+const R   = CX - 10;
+const N   = SEGS.length;               // 8
+const SA  = (Math.PI * 2) / N;        // segment angle radians
+
+function drawWheel(deg) {
+  const rot = (deg * Math.PI) / 180;
+  wCtx.clearRect(0, 0, W, H);
+
+  /* ── outer decorative glow ring ── */
+  const grd = wCtx.createRadialGradient(CX,CY,R-2,CX,CY,R+12);
+  grd.addColorStop(0,'rgba(201,162,39,.35)');
+  grd.addColorStop(1,'rgba(201,162,39,0)');
+  wCtx.beginPath();
+  wCtx.arc(CX,CY,R+6,0,Math.PI*2);
+  wCtx.fillStyle = grd;
+  wCtx.fill();
+
+  /* ── segments ── */
+  for(let i=0;i<N;i++){
+    const s  = SEGS[i];
+    const a0 = rot + i*SA;
+    const a1 = a0 + SA;
+    const am = a0 + SA/2;
+
+    /* fill */
+    wCtx.beginPath();
+    wCtx.moveTo(CX,CY);
+    wCtx.arc(CX,CY,R,a0,a1);
+    wCtx.closePath();
+
+    /* subtle radial gradient per segment */
+    const sg = wCtx.createRadialGradient(CX,CY,30,CX,CY,R);
+    sg.addColorStop(0, lightenHex(s.bg, 18));
+    sg.addColorStop(1, s.bg);
+    wCtx.fillStyle = sg;
+    wCtx.fill();
+
+    /* text */
+    const lr = R * 0.63;
+    const lx = CX + lr * Math.cos(am);
+    const ly = CY + lr * Math.sin(am);
+    wCtx.save();
+    wCtx.translate(lx,ly);
+    wCtx.rotate(am + Math.PI/2);
+    wCtx.textAlign='center';
+    wCtx.textBaseline='middle';
+
+    /* icon */
+    wCtx.fillStyle = s.light;
+    wCtx.font = '600 15px "Exo 2",sans-serif';
+    wCtx.fillText(s.icon, 0, -18);
+
+    /* name */
+    wCtx.fillStyle = s.light;
+    wCtx.font = '700 12px "Exo 2",sans-serif';
+    wCtx.fillText(s.name, 0, -4);
+
+    /* multiplier */
+    wCtx.fillStyle = 'rgba(255,255,255,.55)';
+    wCtx.font = '500 10px "Exo 2",sans-serif';
+    wCtx.fillText(s.mul, 0, 11);
+
+    wCtx.restore();
+  }
+
+  /* ── spoke dividers ── */
+  for(let i=0;i<N;i++){
+    const a = rot + i*SA;
+    wCtx.beginPath();
+    wCtx.moveTo(CX + 52*Math.cos(a), CY + 52*Math.sin(a));
+    wCtx.lineTo(CX + R*Math.cos(a),  CY + R*Math.sin(a));
+    wCtx.strokeStyle = 'rgba(201,162,39,.5)';
+    wCtx.lineWidth = 1.5;
+    wCtx.stroke();
+  }
+
+  /* ── outer gold ring ── */
+  wCtx.beginPath();
+  wCtx.arc(CX,CY,R,0,Math.PI*2);
+  wCtx.strokeStyle = '#c9a227';
+  wCtx.lineWidth = 6;
+  wCtx.stroke();
+
+  /* ── bright rim accent ── */
+  wCtx.beginPath();
+  wCtx.arc(CX,CY,R,0,Math.PI*2);
+  wCtx.strokeStyle = 'rgba(245,224,112,.25)';
+  wCtx.lineWidth = 2;
+  wCtx.stroke();
+
+  /* ── gold dots at segment edges ── */
+  for(let i=0;i<N;i++){
+    const a  = rot + i*SA;
+    const dx = CX + (R-4)*Math.cos(a);
+    const dy = CY + (R-4)*Math.sin(a);
+    wCtx.beginPath();
+    wCtx.arc(dx,dy,5,0,Math.PI*2);
+    wCtx.fillStyle = '#f0d060';
+    wCtx.fill();
+    wCtx.strokeStyle = '#8a6010';
+    wCtx.lineWidth=1;
+    wCtx.stroke();
+  }
+
+  /* ── inner decorative ring ── */
+  wCtx.beginPath();
+  wCtx.arc(CX,CY,R*.4,0,Math.PI*2);
+  wCtx.strokeStyle='rgba(201,162,39,.28)';
+  wCtx.lineWidth=1.5;
+  wCtx.stroke();
+
+  /* ── center disc (behind the HTML button) ── */
+  const cd = wCtx.createRadialGradient(CX-6,CY-8,2,CX,CY,56);
+  cd.addColorStop(0,'#1a0c00');
+  cd.addColorStop(1,'#060408');
+  wCtx.beginPath();
+  wCtx.arc(CX,CY,54,0,Math.PI*2);
+  wCtx.fillStyle = cd;
+  wCtx.fill();
+  wCtx.strokeStyle='rgba(201,162,39,.45)';
+  wCtx.lineWidth=2;
+  wCtx.stroke();
+}
+
+/* lighten a hex color by `pct` per channel */
+function lightenHex(hex, pct) {
+  const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+  const f=(c)=>Math.min(255,c+pct);
+  return `rgb(${f(r)},${f(g)},${f(b)})`;
+}
+
+/* ─────────────── ANIMATION ─────────────── */
+function startFastSpin() {
+  stopAnim();
+  let last = performance.now();
+  function f(ts) {
+    const dt = ts - last; last = ts;
+    wAngle += (dt / 16.67) * 10;   // ~10 deg/frame at 60fps
+    drawWheel(wAngle);
+    rafId = requestAnimationFrame(f);
+  }
+  rafId = requestAnimationFrame(f);
+}
+
+function stopAnim() {
+  if(rafId){ cancelAnimationFrame(rafId); rafId=null; }
+}
+
+function landOnSeg(segIdx, cb) {
+  stopAnim();
+  /* rotation so segIdx lands at 12 o'clock (270° in canvas coords):
+     wAngle + segIdx*45 + 22.5 ≡ 270 (mod 360)
+     wAngle ≡ 247.5 - segIdx*45 (mod 360)          */
+  const tMod = ((247.5 - segIdx*45) % 360 + 360) % 360;
+  const cMod = ((wAngle % 360) + 360) % 360;
+  let   delta = tMod - cMod;
+  if(delta < 30) delta += 360;
+
+  const final  = wAngle + delta + 360*4; // 4 full deceleration spins
+  const start  = wAngle;
+  const t0     = performance.now();
+  const DUR    = 4200;
+
+  function ease(t){ return 1 - Math.pow(1-t, 4); }
+
+  function f(ts) {
+    const t = Math.min((ts-t0)/DUR, 1);
+    wAngle = start + (final-start)*ease(t);
+    drawWheel(wAngle);
+    if(t < 1){ rafId=requestAnimationFrame(f); }
+    else { wAngle=final; drawWheel(wAngle); if(cb) cb(); }
+  }
+  rafId = requestAnimationFrame(f);
+}
+
+/* ─────────────── WEB3 ─────────────── */
+async function connectWallet() {
+  if(!window.ethereum){ setStatus('MetaMask not found. Please install it.','err'); return; }
+  try {
+    await window.ethereum.request({method:'eth_requestAccounts'});
+    provider = new ethers.providers.Web3Provider(window.ethereum);
+    signer   = provider.getSigner();
+    userAddr = await signer.getAddress();
+
+    await ensureBSC();
+    await initContracts();
+
+    const btn = document.getElementById('walletBtn');
+    btn.textContent = userAddr.slice(0,6)+'…'+userAddr.slice(-4);
+    btn.classList.add('ok');
+
+    window.ethereum.on('accountsChanged', a => { if(!a.length) location.reload(); else { userAddr=a[0]; initContracts(); }});
+    window.ethereum.on('chainChanged', () => location.reload());
+  } catch(e) { setStatus((e.message||'Connection failed').slice(0,80),'err'); }
+}
+
+async function ensureBSC() {
+  const net = await provider.getNetwork();
+  const b   = document.getElementById('netBanner');
+  if(net.chainId !== BSC_ID){
+    b.classList.add('show');
+    try {
+      await window.ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:BSC_HEX}]});
+      b.classList.remove('show');
+    } catch(e){
+      if(e.code===4902){
+        await window.ethereum.request({method:'wallet_addEthereumChain',params:[{
+          chainId:BSC_HEX,chainName:'Binance Smart Chain',
+          nativeCurrency:{name:'BNB',symbol:'BNB',decimals:18},
+          rpcUrls:['https://bsc-dataseed.binance.org/'],
+          blockExplorerUrls:['https://bscscan.com/']
+        }]});
+        b.classList.remove('show');
+      }
+    }
+  } else { b.classList.remove('show'); }
+}
+
+async function initContracts() {
+  contract = new ethers.Contract(CONTRACT_ADDR, ABI, signer);
+  const tAddr = await contract.kaviToken();
+  token    = new ethers.Contract(tAddr, ERC20, signer);
+  decimals = await token.decimals();
+  await refreshData();
+  setStatus('Ready — place your bet and spin!','ok');
+}
+
+async function refreshData() {
+  try {
+    const [mn,mx,pool,bal] = await Promise.all([
+      contract.MIN_BET(), contract.currentMaxBet(),
+      contract.poolBalance(), token.balanceOf(userAddr)
+    ]);
+    minBet=mn; maxBet=mx;
+    const fmt  = v => parseFloat(ethers.utils.formatUnits(v,decimals)).toLocaleString('en-US',{maximumFractionDigits:2});
+    const mnF  = parseFloat(ethers.utils.formatUnits(mn,decimals));
+    const mxF  = parseFloat(ethers.utils.formatUnits(mx,decimals));
+    const same = mn.eq(mx);   /* pool too small — max capped at MIN_BET */
+
+    document.getElementById('poolVal').textContent = fmt(pool)+' KAVI';
+    document.getElementById('balDisp').textContent = fmt(bal)+' KAVI';
+
+    /* Show max bet info — warn clearly when pool is small */
+    const maxInfoEl = document.getElementById('maxInfo');
+    const maxDispEl = document.getElementById('maxDisp');
+    maxDispEl.textContent = fmt(mx);
+    maxInfoEl.classList.add('show');
+    if(same){
+      maxInfoEl.innerHTML =
+        'Pool is small — only <span>'+fmt(mx)+' KAVI</span> bets allowed right now';
+    } else {
+      maxInfoEl.innerHTML = 'Max bet: <span>'+fmt(mx)+'</span> KAVI';
+    }
+
+    document.getElementById('betBal').classList.add('show');
+
+    /* Set input to minBet on first load */
+    const inp = document.getElementById('betInput');
+    if(!inp.value) inp.value = mnF;
+
+    /* Hide ½ Max preset when max = min (would just be minBet anyway) */
+    const halfBtn = document.querySelector('.pre[onclick*="half"]');
+    if(halfBtn) halfBtn.style.display = same ? 'none' : '';
+
+  } catch(e){ console.warn('refresh:',e); }
+}
+
+/* ─────────────── BET CONTROLS ─────────────── */
+function minF(){ return minBet.gt(0) ? parseFloat(ethers.utils.formatUnits(minBet,decimals)) : 0; }
+function maxF(){ return maxBet.gt(0) ? parseFloat(ethers.utils.formatUnits(maxBet,decimals)) : Infinity; }
+
+function adjBet(dir) {
+  const mn   = minF();
+  const mx   = maxF();
+  const step = mn || 1;
+  const cur  = parseFloat(document.getElementById('betInput').value) || mn;
+  const next = cur + dir * step;
+  /* clamp strictly within [minBet, maxBet] */
+  const clamped = Math.min(isFinite(mx) ? mx : next, Math.max(mn, next));
+  document.getElementById('betInput').value = +clamped.toFixed(4);
+}
+
+function setPreset(p) {
+  if(minBet.isZero()) return;
+  const mn = minF();
+  const mx = maxF();
+  let val;
+  if(p === 'min')       val = mn;
+  else if(p === 'max')  val = isFinite(mx) ? mx : mn;
+  else /* half */       val = Math.max(mn, isFinite(mx) ? mx / 2 : mn);
+  document.getElementById('betInput').value = +val.toFixed(4);
+}
+
+/* ─────────────── SPIN ─────────────── */
+async function handleSpin() {
+  if(!signer)  { setStatus('Connect your wallet first!','err'); return; }
+  if(spinning) return;
+
+  const rawStr = document.getElementById('betInput').value.trim();
+  if(!rawStr || parseFloat(rawStr)<=0){ setStatus('Enter a valid bet amount.','err'); return; }
+
+  /* ── Sanitize: trim excess decimal places to avoid parseUnits overflow ── */
+  let betStr = rawStr;
+  const dotIdx = rawStr.indexOf('.');
+  if(dotIdx !== -1 && rawStr.length - dotIdx - 1 > decimals){
+    betStr = rawStr.slice(0, dotIdx + 1 + decimals);
+  }
+
+  let betAmt;
+  try { betAmt = ethers.utils.parseUnits(betStr, decimals); }
+  catch(pe) { setStatus('Invalid amount format.','err'); return; }
+
+  if(betAmt.lte(0)){ setStatus('Bet must be greater than 0.','err'); return; }
+
+  if(minBet.gt(0) && betAmt.lt(minBet)){
+    setStatus('Min bet: '+formatK(minBet)+' KAVI','err'); return;
+  }
+  if(maxBet.gt(0) && betAmt.gt(maxBet)){
+    setStatus('Max bet: '+formatK(maxBet)+' KAVI','err'); return;
+  }
+
+  spinning = true;
+  setSpin(false,'…');
+
+  try {
+    /* ── Step 1: Check & approve allowance ── */
+    let allow = await token.allowance(userAddr, CONTRACT_ADDR);
+    if(allow.lt(betAmt)){
+      setStatus('Step 1/2 — Approving KAVI tokens…','info');
+      /* Use a large fixed amount so user doesn't re-approve every spin.
+         Avoid MaxUint256 — some tokens reject it. */
+      const approveAmt = betAmt.mul(1000);
+      let aTx;
+      try {
+        aTx = await token.approve(CONTRACT_ADDR, approveAmt);
+      } catch(ae) {
+        /* If large approve fails, fall back to exact amount */
+        aTx = await token.approve(CONTRACT_ADDR, betAmt);
+      }
+      setTx(aTx.hash,'Approval');
+      await aTx.wait();
+
+      /* ── Verify allowance was actually set ── */
+      allow = await token.allowance(userAddr, CONTRACT_ADDR);
+      if(allow.lt(betAmt)){
+        throw new Error('Approval did not register — please try approving again.');
+      }
+      setStatus('Approved ✓  Step 2/2 — Sending spin…','info');
+    } else {
+      setStatus('Sending spin transaction…','info');
+    }
+
+    /* ── Step 2: Spin ── */
+    const sTx = await contract.spin(betAmt);
+    setTx(sTx.hash,'Spin');
+    startFastSpin();
+    setSpin(false,'⟳');
+
+    const receipt = await sTx.wait();
+
+    /* ── Parse WheelSpun event ── */
+    let segIdx=0, payout=ethers.BigNumber.from(0);
+    const topic = contract.interface.getEventTopic('WheelSpun');
+    for(const log of receipt.logs){
+      if(log.topics[0]===topic){
+        try{
+          const p = contract.interface.parseLog(log);
+          segIdx  = Number(p.args.segment);
+          payout  = p.args.payout;
+        }catch{}
+        break;
+      }
+    }
+
+    /* ── Animate to winning segment ── */
+    landOnSeg(segIdx, ()=>{
+      showResult(segIdx, payout, betAmt);
+      spinning=false;
+      setSpin(true,'SPIN');
+      refreshData();
+    });
+
+  } catch(e) {
+    stopAnim(); drawWheel(wAngle);
+    spinning=false; setSpin(true,'SPIN');
+    setStatus(decodeError(e),'err');
+  }
+}
+
+/* ── Decode any error into a human-readable string ── */
+function decodeError(e) {
+  /* 1. ethers decoded reason string */
+  if(e.reason && !e.reason.startsWith('0x')) return e.reason.replace(/execution reverted:/i,'').trim();
+
+  /* 2. Try contract interface custom errors */
+  const rawData = e.data || e.error?.data || e.error?.error?.data;
+  if(rawData && typeof rawData === 'string' && rawData.length >= 10){
+    /* 2a. Known selector map */
+    const sel = rawData.slice(0,10).toLowerCase();
+    if(ERR_SELECTORS[sel]) return ERR_SELECTORS[sel];
+
+    /* 2b. Decode via contract ABI (BetTooSmall, BetTooLarge, etc.) */
+    try {
+      const decoded = contract.interface.parseError(rawData);
+      switch(decoded.name){
+        case 'BetTooSmall':
+          return 'Bet too small. Min: '+formatK(decoded.args[1])+' KAVI';
+        case 'BetTooLarge':
+          return 'Bet too large. Max: '+formatK(decoded.args[1])+' KAVI';
+        case 'PoolEmpty':
+          return 'Prize pool is empty. Try again later.';
+        case 'InsufficientPool':
+          return 'Pool payout unavailable. Try a smaller bet.';
+        case 'TransferFailed':
+          return 'Token transfer failed — check balance & allowance.';
+        default:
+          return 'Contract error: '+decoded.name;
+      }
+    } catch{}
+  }
+
+  /* 3. MetaMask / provider nested message */
+  const nested = e.error?.message || e.data?.message || '';
+  if(nested && !nested.startsWith('0x')) return nested.replace(/execution reverted:/i,'').trim().slice(0,100);
+
+  /* 4. Fallback */
+  const msg = e.message || 'Transaction failed.';
+  if(msg.startsWith('0x')) return 'Transaction reverted — check balance and try again.';
+  return msg.replace(/execution reverted:/i,'').trim().slice(0,100);
+}
+
+function formatK(bn){ return parseFloat(ethers.utils.formatUnits(bn,decimals)).toLocaleString('en-US',{maximumFractionDigits:4}); }
+
+function setSpin(en, lbl) {
+  const b = document.getElementById('spinBtn');
+  b.disabled = !en; b.textContent = lbl;
+  if(!en && lbl==='⟳') b.classList.add('glow');
+  else b.classList.remove('glow');
+}
+
+/* ─────────────── RESULT ─────────────── */
+function showResult(si, payWei, betWei) {
+  const seg = SEGS[si];
+  document.getElementById('resIcon').textContent = seg.icon;
+  document.getElementById('resName').textContent = seg.name;
+  document.getElementById('resName').className   = 'res-name '+seg.cls;
+
+  if(si===0){
+    document.getElementById('resSub').innerHTML = 'Better luck next time!';
+  } else {
+    const amt = parseFloat(ethers.utils.formatUnits(payWei,decimals))
+                  .toLocaleString('en-US',{maximumFractionDigits:4});
+    document.getElementById('resSub').innerHTML =
+      `You received <span class="amt">${amt} KAVI</span>`;
+  }
+  document.getElementById('resOv').classList.add('show');
+  if(si>=5) fireConfetti();
+}
+
+function closeResult() {
+  document.getElementById('resOv').classList.remove('show');
+  killConfetti();
+  setStatus('Place your next bet!','');
+}
+
+/* ─────────────── STATUS / TX ─────────────── */
+function setStatus(msg,cls){
+  const el=document.getElementById('status');
+  el.textContent=msg; el.className=cls||'';
+}
+function setTx(hash,lbl){
+  document.getElementById('txlink').innerHTML=
+    `<a href="https://bscscan.com/tx/${hash}" target="_blank" rel="noopener">${lbl} — View on BSCScan ↗</a>`;
+}
+
+/* ─────────────── CONFETTI ─────────────── */
+const cc   = document.getElementById('confetti');
+const cctx = cc.getContext('2d');
+let cParts=[], cRaf=null;
+
+function fireConfetti() {
+  cc.width=innerWidth; cc.height=innerHeight;
+  cc.style.display='block';
+  const cols=['#ffd700','#c9a227','#ff8800','#ff4444','#44ff88','#66aaff','#cc44ff','#f0d060'];
+  cParts=Array.from({length:150},()=>({
+    x:Math.random()*cc.width, y:Math.random()*-cc.height*.6-10,
+    w:Math.random()*10+5, h:Math.random()*5+3,
+    c:cols[Math.floor(Math.random()*cols.length)],
+    r:Math.random()*360, rs:(Math.random()-.5)*7,
+    vx:(Math.random()-.5)*2.5, vy:Math.random()*3.5+2
+  }));
+  if(cRaf) cancelAnimationFrame(cRaf);
+  (function draw(){
+    cctx.clearRect(0,0,cc.width,cc.height);
+    let live=false;
+    for(const p of cParts){
+      p.y+=p.vy; p.x+=p.vx; p.r+=p.rs;
+      if(p.y<cc.height) live=true;
+      cctx.save();
+      cctx.translate(p.x,p.y);
+      cctx.rotate(p.r*Math.PI/180);
+      cctx.fillStyle=p.c;
+      cctx.fillRect(-p.w/2,-p.h/2,p.w,p.h);
+      cctx.restore();
+    }
+    if(live) cRaf=requestAnimationFrame(draw);
+    else killConfetti();
+  })();
+}
+function killConfetti(){
+  if(cRaf){cancelAnimationFrame(cRaf);cRaf=null;}
+  cc.style.display='none';
+}
+
+/* ─────────────── STARS ─────────────── */
+(function initStars(){
+  const sc   = document.getElementById('starsBg');
+  const sctx = sc.getContext('2d');
+  function resize(){ sc.width=innerWidth; sc.height=innerHeight; }
+  resize(); window.addEventListener('resize',resize);
+
+  const stars = Array.from({length:220},()=>({
+    xf:Math.random(), yf:Math.random(),
+    r:Math.random()*1.5+.2,
+    base:Math.random()*.5+.08,
+    spd:Math.random()*.0008+.0002,
+    ph:Math.random()*Math.PI*2
+  }));
+  /* a handful of gold-tinted stars */
+  const golds = stars.slice(0,30);
+
+  (function draw(){
+    const t=performance.now();
+    sctx.clearRect(0,0,sc.width,sc.height);
+    for(const s of stars){
+      const a = s.base*(0.45+0.55*Math.sin(t*s.spd+s.ph));
+      const isGold = golds.includes(s);
+      sctx.beginPath();
+      sctx.arc(s.xf*sc.width, s.yf*sc.height, s.r, 0, Math.PI*2);
+      sctx.fillStyle = isGold
+        ? `rgba(245,220,100,${a})`
+        : `rgba(255,248,200,${a})`;
+      sctx.fill();
+    }
+    requestAnimationFrame(draw);
+  })();
+})();
+
+/* ─────────────── PUBLIC POOL FETCH (no wallet) ─────────────── */
+(async function fetchPoolPublic(){
+  try {
+    const pub = new ethers.providers.JsonRpcProvider('https://bsc-dataseed.binance.org/');
+    const c   = new ethers.Contract(CONTRACT_ADDR,
+      ['function poolBalance() view returns (uint256)'], pub);
+    const p   = await c.poolBalance();
+    if(!userAddr)  /* only if wallet not already set */
+      document.getElementById('poolVal').textContent =
+        parseFloat(ethers.utils.formatUnits(p,18)).toLocaleString('en-US',{maximumFractionDigits:2})
+        +' KAVI';
+  } catch{}
+})();
+
+/* ─────────────── INIT ─────────────── */
+drawWheel(wAngle);
+</script>
+</body>
+</html>
